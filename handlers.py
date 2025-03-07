@@ -14,17 +14,19 @@ my_url = "t.me/TstTmcBot"
 
 @router.message(Command("start"))
 async def start_handler(msg: Message):
-    #if (msg.from_user.username) обработка повторной регистрации
-    pass
+    inline_butto1 = InlineKeyboardButton(text="Начать регистрацию",  callback_data='reg')
+    kb = InlineKeyboardMarkup(inline_keyboard=[[inline_butto1]])
+    await msg.answer(text = "Начать регистрацию", reply_markup = kb )
 
 
+@router.callback_query(F.data == "reg")
+async def callback_reg_handler(callback : CallbackQuery):
+    await callback.message.answer("Как вас зовут")
 
 @router.my_chat_member(ChatMemberUpdatedFilter(JOIN_TRANSITION))
-async def join_to_group(event  : ChatMemberUpdated): 
-    inline_butto1 = InlineKeyboardButton(text="Регистрация", url = my_url, callback_data='reg')
+async def join_to_group_handler(event  : ChatMemberUpdated): 
+    inline_butto1 = InlineKeyboardButton(text="Регистрация", url = my_url)
     kb = InlineKeyboardMarkup(inline_keyboard=[[inline_butto1]])
     await event.answer(text = "Перейдите в меня и зарегистрируйтесь", reply_markup = kb )
 
-@router.callback_query(F.data.startswith('reg'))
-async def get_send_shtrihcode(call: CallbackQuery):
-    await call.message.answer(text = "Давай зарегаемся ")
+
