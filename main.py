@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import DBController
 
 from aiogram import Bot, Dispatcher
 from aiogram.enums.parse_mode import ParseMode
@@ -10,6 +11,7 @@ from handlers import router
 
 
 async def main():
+    DBController.create_db()
     bot = Bot(token=config.BOT_TOKEN)
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(router)
