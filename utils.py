@@ -11,3 +11,7 @@ def create_menu_keyboard():
     keyboard = InlineKeyboardMarkup(inline_keyboard=lst)
 
     return keyboard
+
+
+def create_borrow_string():
+    pass
