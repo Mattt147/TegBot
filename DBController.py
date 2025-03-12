@@ -26,7 +26,7 @@ def create_db():
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS  material_assets(
         key  integer PRIMARY KEY AUTOINCREMENT,
-        identifier integer,
+        identifier text,
         description text,
         photo text
     )""")
@@ -35,14 +35,14 @@ def create_db():
         id  integer PRIMARY KEY AUTOINCREMENT,
         witness_username text,
         debtor_username text,
-        description_item text, 
         start_date date,
         end_date date,
-        key_material_assets integer,
-        count_day integer,
+        key_material_asset integer,
+        counter_days integer,
+        state_acceptance text,
         FOREIGN KEY (witness_username) REFERENCES users(username),
-        FOREIGN KEY (debtor_username) REFERENCES users(username)
-        FOREIGN KEY (key_material_assets) REFERENCES material_assets(key)
+        FOREIGN KEY (debtor_username) REFERENCES users(username),
+        FOREIGN KEY (key_material_asset) REFERENCES material_assets(key)
     )""")
 
     db.commit()
@@ -58,18 +58,20 @@ def create_db():
 
 
 
-def add_new_process(witness_username, debtor_username, descrp, end_date : datetime.date):
+def add_new_process(witness_username, debtor_username, descrp, end_date):
     db = sqlite3.connect("database.db")
     c = db.cursor()
+    end_date = datetime.strftime(end_date, "%d.%m.%y").date()
     count_day = end_date - datetime.today()
-    c.execute("INSERT INTO process (witness_username, debtor_username, description_item, start_date, end_date, count_day) VALUES ('{witness}', '{debtor}','{descrption}',{start_date}, {end}, {days}})".
+    c.execute("INSERT INTO process (witness_username, debtor_username,  key_material_asset, start_date, end_date, counter_days, status_acceptance) VALUES ('{witness}', '{debtor}','{descrption}',{start_date}, {end}, {days}, '{accept}')".
                 format(   
                     witness = witness_username,
                     debtor = debtor_username,
                     descrption = descrp, 
-                    start_date = datetime.today(),
+                    start_date = datetime.today()
                     end = end_date,
-                    days = count_day.days
+                    days = count_day.days,
+                    accept = "Обрабатывается"
                     )
             )
     db.commit()
@@ -100,6 +102,15 @@ def add_new_user(id_user, username, second_name, first_name, access):
     db.close()
 
 
+def add_new_item(indef, descr, photo):
+    db = sqlite3.connect("database.db")
+    c = db.cursor()
+    c.execute("INSERT INTO material_assets (identifier, description, photo) VALUES ('{}', '{}', '{}')".format( indef, descr, photo ))
+    db.commit()
+    db.close()
+    
+
+
 
 
 def remove_zap (id):
@@ -119,7 +130,7 @@ def remove_user(username):
     db.close()
 
 
-def check_user_reg_by_user_id(user_id ): #выбирается либо  1 либо другой параметр
+def check_user_reg_by_user_id(user_id ): 
     db = sqlite3.connect("database.db")
     c = db.cursor()
 
@@ -131,7 +142,7 @@ def check_user_reg_by_user_id(user_id ): #выбирается либо  1 ли�
     db.close()
     return True
 
-def check_user_reg_by_username(username ): #выбирается либо  1 либо другой параметр
+def check_user_reg_by_username(username ): 
     db = sqlite3.connect("database.db")
     c = db.cursor()
 
@@ -162,10 +173,63 @@ def getListOfUsers():
     db.close()
     return result
 
-def get_count_duty(id):
+def get_process_string(id):
     db = sqlite3.connect("database.db")
     c = db.cursor()
-    c.execute("SELECT counter_duty FROM users WHERE user_id = {}".format(str(id)))
-    result = c.fetchone()[0]
+    c.execute("SELECT * FROM process WHERE id = {}".format(id))
+    result = ""
+    lst = c.fetchone()[0]
+    result = "id сделки - {}\n".format(str(lst[0]))
+    result += "заявитель - {}\n".format(lst[2])
+    result += "дата начала - {}\n дата конца - {}".format(str(lst[4]), str(lst(5)))
+    return result, lst[3]
+    
+
+
+def get_witness():
+    db = sqlite3.connect("database.db")
+    c = db.cursor()
+    c.execute("SELECT username FROM users WHERE access_status = 2 OR access_status = 3")
+    lists = c.fetchall()
+    min_processes = 10000000
+    min_name = ""
+    for lst in lists:
+        name = lst[0]
+        c.execute("SELECT COUNT (*) FROM process WHERE witness_username = '{}'".format(name))
+        counter = list(c.fetchone())
+        if (counter[0] < min_processes):
+            min_name = name
+            min_processes = counter[0]
+        
+    return min_name
+
+
+def get_id_by_username(username):
+    db = sqlite3.connect("database.db")
+    c = db.cursor()
+    c.execute("SELECT user_id FROM users WHERE username = '{}'".format(username))
+    user_id = c.fetchone()[0]
     db.close()
-    return result
+    return user_id
+
+#SELECT * FROM table_name ORDER BY id DESC LIMIT 1
+# def get_last_process():
+#     db = sqlite3.connect("database.db")
+#     c = db.cursor()
+#     c.execute("SELECT id FROM process ORDER BY id DESC LIMIT 1")
+#     if (len(c.fetchall())== 0 ):
+#         return 0
+#     id = list(c.fetchone())[0]
+#     db.close()
+#     return id
+
+# def get_last_item():
+#     db = sqlite3.connect("database.db")
+#     c = db.cursor()
+#     c.execute("SELECT key FROM  material_assets ORDER BY key DESC LIMIT 1")
+#     if (len(c.fetchall())== 0 ):
+#         return 0
+#     print (str(c.fetchone()))
+#     list = list(c.fetchone())
+#     db.close()
+#     return id

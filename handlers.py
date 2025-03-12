@@ -8,12 +8,17 @@ from aiogram import Router, F
 from aiogram.types import ChatMemberUpdated, InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery, ReplyKeyboardMarkup,  KeyboardButton, ReplyKeyboardRemove
 from aiogram.filters import Command, ChatMemberUpdatedFilter, JOIN_TRANSITION
 from aiogram.fsm.context import FSMContext
-from states import Reg, Administration
+from states import Reg, Administration, Bor
+from BOTIINT import bot
+import datetime
 
 
+
+
+counter_processes = 0
+counter_items = 0 
 router = Router()
 my_url = "t.me/TstTmcBot"
-
 
 
 
@@ -38,7 +43,6 @@ async def callback_reg_handler(callback : CallbackQuery, state : FSMContext):
 
 
 
-
 @router.message(Reg.fullname)
 async def second_step_reg(msg : Message, state: FSMContext):
     await state.update_data(fullname = msg.text)
@@ -46,9 +50,11 @@ async def second_step_reg(msg : Message, state: FSMContext):
     await msg.answer("Введите пароль")
 
 
+
+
 @router.callback_query(F.data == "duty")
 async def callback_counter_duty(callback : CallbackQuery):
-    print(callback.from_user.id)
+    pass
     await callback.message.answer(text  = "Ваше количество долгов равно " + str(DBController.get_count_duty(callback.from_user.id)))
 
 
@@ -76,6 +82,8 @@ async def third_step_reg(msg : Message, state: FSMContext):
 
 
 
+
+
 @router.my_chat_member(ChatMemberUpdatedFilter(JOIN_TRANSITION))
 async def join_to_group_handler(event  : ChatMemberUpdated): 
     inline_button1 = InlineKeyboardButton(text="Регистрация", url = my_url)
@@ -84,10 +92,13 @@ async def join_to_group_handler(event  : ChatMemberUpdated):
 
 
 
+
+
 @router.message(Command("menu"))
 async def menu_handler(msg: Message):
     kb = utils.create_menu_keyboard()
     await msg.answer(text="Выбрать действие",reply_markup = kb )
+
 
 
 
@@ -107,10 +118,76 @@ async def callback_admin(callback : CallbackQuery):
 
 
 
+
+
 @router.callback_query(F.data == "menu_again")
-async def allback_again_menu(callback : CallbackQuery):
+async def callback_again_menu(callback : CallbackQuery):
     kb = utils.create_menu_keyboard()
     await callback.message.edit_text(text="Выбрать действие",reply_markup = kb)
+
+
+
+
+@router.callback_query(F.data == "bor")
+async def callback_borrow(callback : CallbackQuery, state : FSMContext):
+    await callback.message.answer("Введите идентификатор ТМЦ. Чтобы пропустить шаг: введите 'Пропустить'.")
+    await state.set_state(Bor.indef)
+    
+
+
+@router.message(Bor.indef)
+async def id_step_new_ma(msg : Message, state: FSMContext):
+    print(msg.text)
+    if (msg.text.lower() != "пропустить"):
+        await state.update_data(indef = msg.text)
+    else:
+        await state.update_data(indef = "---")
+    await state.set_state(Bor.photo)
+    await msg.answer("Введите фотографию ТМЦ.'.")
+
+
+
+@router.message(Bor.photo)
+async def photo_step(msg : Message, state : FSMContext):
+    if (len(msg.photo) ==0):
+        msg.answer("Нужно фото без всяких записей")
+    photo = msg.photo[-1]
+    file_info = await bot.get_file(photo.file_id)
+    downloaded_file = await bot.download_file(file_info.file_path)
+    save_path = "images/" + str(1) + '.jpg'
+    with open(save_path, 'wb') as new_file:
+        new_file.write(downloaded_file.getvalue())
+    await state.update_data( photo = save_path)
+    await state.set_state(Bor.description)
+    await msg.answer("Введите описание ТМЦ. Чтобы пропустить шаг: введите 'Пропустить'.")
+
+
+
+@router.message(Bor.description)
+async def step_descrp(msg : Message, state: FSMContext):
+    if (msg.text.lower() != "пропустить"):
+        await state.update_data(description = msg.text)
+    else:
+        await state.update_data(description = "---")
+    await state.set_state(Bor.date)
+    await msg.answer("Введите дату возврата ТМЦ.(дд.мм.гггг)")
+
+@router.message(Bor.date)
+async def id_step_date(msg : Message, state: FSMContext):
+    witness = DBController.get_witness()
+    await state.update_data(date = msg.text)
+    data = await state.get_data()
+    DBController.add_new_item(data["indef"], data["description"], data["photo"])
+    DBController.add_new_process(DBController.get_witness(), msg.from_user.username, 1, data["date"])
+    await state.clear()
+    string_result, path_photo = DBController.get_process_string(1)
+    photo = open(path_photo, "rb")
+    await bot.send_message(DBController.get_id_by_username(witness), string_result)
+    await bot.send_photo(DBController.get_id_by_username(witness) , photo)
+    photo.close()
+  
+
+
 
 @router.callback_query(F.data == "list")
 async def callback_admin(callback : CallbackQuery):
@@ -123,11 +200,15 @@ async def callback_admin(callback : CallbackQuery):
     await callback.message.answer(text="Выбрать действие",reply_markup = kb )
 
 
+
+
+
 @router.callback_query(F.data == "change_access")
 async def allback_again_menu(callback : CallbackQuery,state : FSMContext):
-    callback.message.delete()
     await callback.message.answer(text= "Напишитие username человека, у которого хотите поменять доступ(@....)")
     await state.set_state(Administration.username)
+
+
 
 
 
@@ -150,6 +231,8 @@ async def second_step_reg(msg : Message, state: FSMContext):
     await msg.answer(text = "Введите новый доступ(admin(администратор), common_user(стандартный пользователь), witness(заверитель))", reply_markup= kb)
 
 
+
+
 @router.message(Administration.new_access)
 async def new_access(msg : Message, state: FSMContext):
     await state.update_data(new_access = msg.text)
@@ -162,3 +245,6 @@ async def new_access(msg : Message, state: FSMContext):
 
 
 
+# @router.message()
+# async def start_handler(msg: Message):
+#     msg.answer("Я вас не понимаю. еще раз")

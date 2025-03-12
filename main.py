@@ -5,14 +5,13 @@ import DBController
 from aiogram import Bot, Dispatcher
 from aiogram.enums.parse_mode import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-
+from BOTIINT import bot
 import config
 from handlers import router
 
 
 async def main():
     DBController.create_db()
-    bot = Bot(token=config.BOT_TOKEN)
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(router)
     await bot.delete_webhook(drop_pending_updates=True)

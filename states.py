@@ -10,4 +10,11 @@ class Administration(StatesGroup):
 
     username = State()
     new_access = State()
+
+
+class Bor(StatesGroup):
+    indef = State()
+    photo =  State()
+    description = State()
+    date = State()
     
