@@ -1,5 +1,5 @@
 import sqlite3
-import datetime
+from datetime  import datetime
 
 
 
@@ -61,15 +61,15 @@ def create_db():
 def add_new_process(witness_username, debtor_username, descrp, end_date):
     db = sqlite3.connect("database.db")
     c = db.cursor()
-    end_date = datetime.strftime(end_date, "%d.%m.%y").date()
-    count_day = end_date - datetime.today()
-    c.execute("INSERT INTO process (witness_username, debtor_username,  key_material_asset, start_date, end_date, counter_days, status_acceptance) VALUES ('{witness}', '{debtor}','{descrption}',{start_date}, {end}, {days}, '{accept}')".
-                format(   
+    end_date = datetime.strptime(end_date, "%d.%m.%y").date()
+    count_day = end_date - datetime.today().date()
+    c.execute("INSERT INTO process (witness_username, debtor_username,  key_material_asset, start_date, end_date, counter_days, state_acceptance) VALUES ('{witness}', '@{debtor}','{descrption}','{start_date}', '{end}', {days}, '{accept}')".
+                format(  
                     witness = witness_username,
                     debtor = debtor_username,
                     descrption = descrp, 
-                    start_date = datetime.today()
-                    end = end_date,
+                    start_date = str(datetime.today().date()),
+                    end = str(end_date),
                     days = count_day.days,
                     accept = "Обрабатывается"
                     )
@@ -177,12 +177,15 @@ def get_process_string(id):
     db = sqlite3.connect("database.db")
     c = db.cursor()
     c.execute("SELECT * FROM process WHERE id = {}".format(id))
-    result = ""
-    lst = c.fetchone()[0]
-    result = "id сделки - {}\n".format(str(lst[0]))
-    result += "заявитель - {}\n".format(lst[2])
-    result += "дата начала - {}\n дата конца - {}".format(str(lst[4]), str(lst(5)))
-    return result, lst[3]
+    result = "Вам прислали заявление на заимствование "
+    lst = c.fetchone()
+    result = "Id сделки - {}\n".format(str(lst[0]))
+    result += "Заявитель - {}\n".format(lst[2])
+    result += "Дата начала - {}\nДата конца - {}".format(str(lst[3]), str(lst[4]))
+    c.execute("Select photo FROM material_assets WHERE key = '{}'".format(lst[5]))
+    lst = list(c.fetchone())
+    db.close()
+    return result, lst[0]
     
 
 
@@ -200,7 +203,7 @@ def get_witness():
         if (counter[0] < min_processes):
             min_name = name
             min_processes = counter[0]
-        
+    db.close()
     return min_name
 
 
@@ -208,28 +211,35 @@ def get_id_by_username(username):
     db = sqlite3.connect("database.db")
     c = db.cursor()
     c.execute("SELECT user_id FROM users WHERE username = '{}'".format(username))
-    user_id = c.fetchone()[0]
+    user_id = list(c.fetchone())[0]
     db.close()
     return user_id
 
-#SELECT * FROM table_name ORDER BY id DESC LIMIT 1
-# def get_last_process():
-#     db = sqlite3.connect("database.db")
-#     c = db.cursor()
-#     c.execute("SELECT id FROM process ORDER BY id DESC LIMIT 1")
-#     if (len(c.fetchall())== 0 ):
-#         return 0
-#     id = list(c.fetchone())[0]
-#     db.close()
-#     return id
 
-# def get_last_item():
-#     db = sqlite3.connect("database.db")
-#     c = db.cursor()
-#     c.execute("SELECT key FROM  material_assets ORDER BY key DESC LIMIT 1")
-#     if (len(c.fetchall())== 0 ):
-#         return 0
-#     print (str(c.fetchone()))
-#     list = list(c.fetchone())
-#     db.close()
-#     return id
+
+def count_all_process():
+    db = sqlite3.connect("database.db")
+    c = db.cursor()
+    c.execute("SELECT COUNT (*) FROM process ")
+    lst = list(c.fetchone())
+    db.close()
+    return lst[0]
+
+
+def update_accept_state(new_state, id):
+    db = sqlite3.connect("database.db")
+    print(id)
+    c = db.cursor()
+    c.execute("UPDATE process SET state_acceptance = '{}' WHERE id = '{}'".format(new_state, id))
+    db.commit()
+    db.close()
+
+
+def get_debtor_username_by_process_id(id):
+    db = sqlite3.connect("database.db")
+    c = db.cursor()
+    c.execute("SELECT debtor_username FROM process WHERE id = {}".format(id))
+
+    lst = list(c.fetchone())
+    db.close()
+    return lst[0]

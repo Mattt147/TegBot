@@ -17,4 +17,6 @@ class Bor(StatesGroup):
     photo =  State()
     description = State()
     date = State()
-    
+
+class Accept(StatesGroup):
+    date = State()

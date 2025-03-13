@@ -5,12 +5,12 @@ import config
 import DBController
 import utils
 from aiogram import Router, F
-from aiogram.types import ChatMemberUpdated, InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery, ReplyKeyboardMarkup,  KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import ChatMemberUpdated, InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery, ReplyKeyboardMarkup,  KeyboardButton, ReplyKeyboardRemove, FSInputFile
 from aiogram.filters import Command, ChatMemberUpdatedFilter, JOIN_TRANSITION
 from aiogram.fsm.context import FSMContext
 from states import Reg, Administration, Bor
 from BOTIINT import bot
-import datetime
+from datetime import datetime
 
 
 
@@ -154,7 +154,7 @@ async def photo_step(msg : Message, state : FSMContext):
     photo = msg.photo[-1]
     file_info = await bot.get_file(photo.file_id)
     downloaded_file = await bot.download_file(file_info.file_path)
-    save_path = "images/" + str(1) + '.jpg'
+    save_path = "images/" + str(utils.count_all_photo()+1) + '.jpg'
     with open(save_path, 'wb') as new_file:
         new_file.write(downloaded_file.getvalue())
     await state.update_data( photo = save_path)
@@ -170,25 +170,33 @@ async def step_descrp(msg : Message, state: FSMContext):
     else:
         await state.update_data(description = "---")
     await state.set_state(Bor.date)
-    await msg.answer("Введите дату возврата ТМЦ.(дд.мм.гггг)")
+    await msg.answer("Введите дату возврата ТМЦ.(дд.мм.гг)")
+
+
 
 @router.message(Bor.date)
 async def id_step_date(msg : Message, state: FSMContext):
+    try:
+        datetime.strptime(msg.text, "%d.%m.%y")
+    except:
+        await msg.answer("Дата введена неправльно. Попробуйте еще раз. (дд.мм.гг)")
+        return
     witness = DBController.get_witness()
     await state.update_data(date = msg.text)
     data = await state.get_data()
     DBController.add_new_item(data["indef"], data["description"], data["photo"])
-    DBController.add_new_process(DBController.get_witness(), msg.from_user.username, 1, data["date"])
+    DBController.add_new_process(DBController.get_witness(), msg.from_user.username, utils.count_all_photo(), data["date"])
     await state.clear()
-    string_result, path_photo = DBController.get_process_string(1)
-    photo = open(path_photo, "rb")
-    await bot.send_message(DBController.get_id_by_username(witness), string_result)
-    await bot.send_photo(DBController.get_id_by_username(witness) , photo)
-    photo.close()
+    string_result, path_photo = DBController.get_process_string(utils.count_all_process() + DBController.count_all_process())
+    yes_button = InlineKeyboardButton(text = "Потвердить", callback_data="yes_button {}".format(utils.count_all_process() + DBController.count_all_process()))
+    no_buutton = InlineKeyboardButton(text= "Отказать", callback_data="no_button {}".format(utils.count_all_process() + DBController.count_all_process()))
+    change_button = InlineKeyboardButton(text= "Изменить дату и потвердить", callback_data="change_button {}".format(utils.count_all_process() + DBController.count_all_process()))
+    lst = [[yes_button, no_buutton], [change_button]]
+    kb = InlineKeyboardMarkup(inline_keyboard=lst)
+    kb2 = utils.create_menu_keyboard()
+    await msg.answer(text="Выбрать действие",reply_markup = kb2 )
+    await bot.send_photo(chat_id= DBController.get_id_by_username(witness), photo=FSInputFile(path_photo), caption= string_result, reply_markup= kb)
   
-
-
-
 @router.callback_query(F.data == "list")
 async def callback_admin(callback : CallbackQuery):
     lst = DBController.getListOfUsers()
@@ -199,6 +207,22 @@ async def callback_admin(callback : CallbackQuery):
     kb = utils.create_menu_keyboard()
     await callback.message.answer(text="Выбрать действие",reply_markup = kb )
 
+
+@router.callback_query(lambda c: c.data.startswith("yes_button"))
+async def yes_callback(callback : CallbackQuery):
+    id = callback.data.split(' ')[1]
+    DBController.update_accept_state("Потвержден", callback.data.split(' ')[1])
+    await bot.send_message(chat_id= DBController.get_id_by_username(DBController.get_debtor_username_by_process_id(id)), text = "Заявка под номером {}  былая принята".format(id))
+    kb = utils.create_menu_keyboard()
+    await callback.message.answer(text="Выбрать действие",reply_markup = kb )
+
+@router.callback_query(lambda c: c.data.startswith("no_button"))
+async def no_callback(callback : CallbackQuery):
+    id = callback.data.split(' ')[1]
+    DBController.update_accept_state("Отклонен", callback.data.split(' ')[1])
+    await bot.send_message(chat_id= DBController.get_id_by_username(DBController.get_debtor_username_by_process_id(id)), text = "Заявка под номером {}  былая отклонена".format(id))
+    kb = utils.create_menu_keyboard()
+    await callback.message.answer(text="Выбрать действие",reply_markup = kb )
 
 
 
